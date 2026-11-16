@@ -291,10 +291,29 @@ function overlayColors() {
   };
 }
 
+// Development: GAIK_DESKTOP_RECORD_DIR=<folder> renders the window offscreen and
+// writes every painted frame there, for demo recordings that do not depend on
+// the desktop being visible. Drive the app over --remote-debugging-port.
+const recordDir = process.env.GAIK_DESKTOP_RECORD_DIR;
+
+function recordFrames(target) {
+  fs.mkdirSync(recordDir, { recursive: true });
+  const index = fs.createWriteStream(path.join(recordDir, "frames.jsonl"), { flags: "w" });
+  let count = 0;
+  target.webContents.setFrameRate(30);
+  target.webContents.on("paint", (_event, _dirty, image) => {
+    const file = `${String(count++).padStart(6, "0")}.jpg`;
+    fs.writeFileSync(path.join(recordDir, file), image.toJPEG(92));
+    index.write(JSON.stringify({ file, t: Date.now() / 1000 }) + "\n");
+  });
+}
+
 function createWindow() {
   win = new BrowserWindow({
-    width: 1280,
-    height: 860,
+    width: recordDir ? 1440 : 1280,
+    height: recordDir ? 810 : 860,
+    useContentSize: true,
+    show: !recordDir,
     minWidth: 860,
     minHeight: 600,
     title: "GAIK Desktop",
@@ -306,8 +325,10 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      offscreen: Boolean(recordDir),
     },
   });
+  if (recordDir) recordFrames(win);
   win.loadFile(path.join(__dirname, "..", "dist", "renderer", "index.html"));
   win.on("closed", () => (win = null));
   // The window shows only the app itself; links open in the browser.

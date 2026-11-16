@@ -247,7 +247,7 @@ export function ClassifyTable({ rows }: { rows: ClassifyRow[] }) {
                 <>
                   <td className="border-b border-line px-3 py-2">
                     {row.result && (
-                      <span className="rise inline-block rounded bg-accent-soft px-2 py-0.5 font-medium text-accent">
+                      <span className="rise inline-block rounded bg-accent-soft px-2 py-0.5 font-medium whitespace-nowrap text-accent">
                         {row.result.label}
                       </span>
                     )}

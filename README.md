@@ -10,7 +10,10 @@ files or a whole folder, and the toolkit runs on your own computer:
 - **Classify**: give your classes, get a class, a confidence and a reason per file.
 - **Transcribe**: audio and video to text, with an optional correction pass.
 
-![Extracting invoice fields from three files](docs/extract.png)
+[![GAIK Desktop extracting invoice fields from five files: open the 50-second demo video](docs/demo-poster.jpg)](docs/demo.mp4)
+
+A 50-second demo ([docs/demo.mp4](docs/demo.mp4)): real model calls on made-up sample
+documents, with the waits for the model shortened. No sound.
 
 Files are read where they are. Nothing is uploaded to a GAIK server: only the text or page
 images of a document go to the model provider you configure (Azure OpenAI or OpenAI), with
@@ -80,6 +83,10 @@ python sidecar/smoke_live.py
 (run it with the engine's Python and your provider variables in the environment).
 `GAIK_DESKTOP_USE_ENV=1 bun start` makes the engine use the model variables of the shell
 instead of the settings page.
+
+`GAIK_DESKTOP_RECORD_DIR=<folder>` renders the window offscreen and writes every painted
+frame to that folder, for demo recordings that do not depend on the desktop being visible;
+drive the app over `--remote-debugging-port`.
 
 ## license
 
