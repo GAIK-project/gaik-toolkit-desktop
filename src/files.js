@@ -59,4 +59,27 @@ function safeSize(file) {
   }
 }
 
-module.exports = { expandPaths, MAX_FILES };
+/**
+ * Writes text files into a folder and returns their paths. A name is reduced to
+ * its base name, and an existing file is never overwritten: the new one gets
+ * " (2)", " (3)" and so on before its extension.
+ */
+function writeAll(folder, files) {
+  const written = [];
+  const taken = new Set();
+  for (const file of files) {
+    const base = path.basename(String(file.name).replace(/[<>:"|?*\u0000-\u001f]/g, "_")) || "result.txt";
+    const ext = path.extname(base);
+    const stem = base.slice(0, base.length - ext.length);
+    let target = path.join(folder, base);
+    for (let n = 2; taken.has(target.toLowerCase()) || fs.existsSync(target); n++) {
+      target = path.join(folder, `${stem} (${n})${ext}`);
+    }
+    taken.add(target.toLowerCase());
+    fs.writeFileSync(target, file.content, "utf8");
+    written.push(target);
+  }
+  return written;
+}
+
+module.exports = { expandPaths, writeAll, MAX_FILES };

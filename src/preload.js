@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld("gaik", {
   save: {
     text: (options) => ipcRenderer.invoke("save:text", options),
     xlsx: (options) => ipcRenderer.invoke("save:xlsx", options),
+    folder: (options) => ipcRenderer.invoke("save:folder", options),
   },
   data: {
     get: (name) => ipcRenderer.invoke("data:get", name),

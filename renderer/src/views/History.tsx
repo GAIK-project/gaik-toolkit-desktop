@@ -7,6 +7,7 @@ import {
   ExtractExports,
   ExtractTable,
   RecordDetail,
+  SaveAllButton,
   TextPane,
   type ClassifyRow,
 } from "../results";
@@ -122,7 +123,7 @@ function TextRun({ run, extension }: { run: Run; extension: "md" | "txt" }) {
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
       {data.rows.length > 1 && (
-        <div className="scroll flex shrink-0 gap-1">
+        <div className="scroll flex shrink-0 items-center gap-1">
           {data.rows.map((r, i) => (
             <button
               key={i}
@@ -136,6 +137,9 @@ function TextRun({ run, extension }: { run: Run; extension: "md" | "txt" }) {
               {r.name}
             </button>
           ))}
+          <div className="ml-auto flex shrink-0 items-center gap-2 pl-2">
+            <SaveAllButton rows={data.rows} extension={extension} />
+          </div>
         </div>
       )}
       {row && <TextPane name={row.name} text={row.text} extension={extension} />}

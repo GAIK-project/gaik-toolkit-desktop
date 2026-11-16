@@ -1,5 +1,5 @@
 // Result views shared by the tools and the history.
-import { Download } from "lucide-react";
+import { Download, FolderDown } from "lucide-react";
 import type { ReactNode } from "react";
 import { gaik } from "./bridge";
 import {
@@ -311,6 +311,35 @@ export function ClassifyExports({ rows, name }: { rows: ClassifyRow[]; name: str
 // ---------------------------------------------------------------------------
 // Text results (parsed documents, transcripts)
 // ---------------------------------------------------------------------------
+/** Saves every text result into one folder, one file per source file. */
+export function SaveAllButton({
+  rows,
+  extension,
+}: {
+  rows: { name: string; text: string }[];
+  extension: "md" | "txt";
+}) {
+  const saved = useSaved();
+  if (rows.length < 2) return null;
+  return (
+    <>
+      {saved.element}
+      <Button
+        icon={<FolderDown className="size-4" />}
+        onClick={async () =>
+          saved.report(
+            await gaik.save.folder({
+              files: rows.map((r) => ({ name: `${stem(r.name)}.${extension}`, content: r.text })),
+            }),
+          )
+        }
+      >
+        Save all
+      </Button>
+    </>
+  );
+}
+
 export function TextPane({
   name,
   text,

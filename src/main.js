@@ -26,7 +26,7 @@ const {
   publicView,
   settingsToEnv,
 } = require("./settings");
-const { expandPaths } = require("./files");
+const { expandPaths, writeAll } = require("./files");
 
 const isWin = process.platform === "win32";
 const isMac = process.platform === "darwin";
@@ -317,6 +317,7 @@ function createWindow() {
     minWidth: 860,
     minHeight: 600,
     title: "GAIK Desktop",
+    icon: path.join(__dirname, "..", "build", "icon.png"),
     backgroundColor: nativeTheme.shouldUseDarkColors ? "#121616" : "#f6f7f7",
     titleBarStyle: isMac ? "hiddenInset" : "hidden",
     ...(isMac ? {} : { titleBarOverlay: overlayColors() }),
@@ -454,6 +455,24 @@ handle("save:xlsx", async (options) => {
     sheets: options?.sheets ?? [],
   });
   return saved.ok ? { ok: true, path: result.filePath } : saved;
+});
+
+handle("save:folder", async (options) => {
+  const files = (Array.isArray(options?.files) ? options.files : []).filter(
+    (f) => f && typeof f.name === "string" && typeof f.content === "string",
+  );
+  if (!files.length) return { ok: false, error: "Nothing to save." };
+  const result = await dialog.showOpenDialog(win, {
+    title: "Save all results to a folder",
+    properties: ["openDirectory", "createDirectory"],
+  });
+  if (result.canceled || !result.filePaths[0]) return { ok: false, canceled: true };
+  try {
+    const saved = writeAll(result.filePaths[0], files);
+    return { ok: true, path: saved[0], count: saved.length };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
 });
 
 handle("data:get", (name) => {

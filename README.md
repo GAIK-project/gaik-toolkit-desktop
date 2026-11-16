@@ -1,12 +1,14 @@
 # GAIK Desktop (experimental)
 
+[![Check](https://github.com/GAIK-project/gaik-toolkit-desktop/actions/workflows/check.yml/badge.svg)](https://github.com/GAIK-project/gaik-toolkit-desktop/actions/workflows/check.yml)
+
 A desktop app for the [GAIK Toolkit](https://github.com/GAIK-project/gaik-toolkit). Drop
 files or a whole folder, and the toolkit runs on your own computer:
 
 - **Extract data**: describe the fields in your own words, get one row per file, export
   to Excel, CSV or JSON. Repeated groups such as invoice lines become their own sheet.
 - **Parse to text**: PDF and Word to text without a model; scans and images through your
-  model.
+  model. **Save all** writes one file per document into a folder.
 - **Classify**: give your classes, get a class, a confidence and a reason per file.
 - **Transcribe**: audio and video to text, with an optional correction pass.
 
@@ -74,13 +76,20 @@ bun run check
 ```
 
 runs the syntax checks, the unit tests of the settings and file logic, and the type
-check. The engine has a live smoke test that makes real model calls:
+check. The engine has its own tests, run with the engine's Python (the packages in
+`sidecar/requirements.txt` plus `pytest`):
+
+```bash
+python -m pytest sidecar/test_offline.py -q
+```
+
+needs no model key and makes no network calls; CI runs it on every push.
 
 ```bash
 python sidecar/smoke_live.py
 ```
 
-(run it with the engine's Python and your provider variables in the environment).
+makes real model calls and needs your provider variables in the environment.
 `GAIK_DESKTOP_USE_ENV=1 bun start` makes the engine use the model variables of the shell
 instead of the settings page.
 

@@ -11,8 +11,10 @@ Experimental desktop app for the GAIK Toolkit. README.md explains the design.
 - `sidecar/server.py` is the engine: FastAPI over `gaik` from PyPI. Toolkit behaviour is
   fixed in `GAIK-project/gaik-toolkit`, not worked around here; bump the pin in
   `sidecar/requirements.txt` to take a new release.
-- Checks: `bun run check`. A change to the engine or to start-up needs a real run:
-  `sidecar/smoke_live.py` with provider keys, then `bun start`.
+- Checks: `bun run check`, and for the engine `python -m pytest sidecar/test_offline.py -q`
+  with the engine's Python (no model key needed). CI runs both. A change to a model call
+  or to start-up also needs a real run: `sidecar/smoke_live.py` with provider keys, then
+  `bun start`.
 - Secrets never reach the renderer or a file in plain text: the page gets `publicView()`,
   the store encrypts with `safeStorage`. Keep `contextIsolation`, `sandbox` and the
   navigation guard.

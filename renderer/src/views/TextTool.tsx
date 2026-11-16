@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { gaik, type ApiResult, type EngineState } from "../bridge";
 import { saveRun, useQueue, type Item, type Tool } from "../lib";
-import { TextPane } from "../results";
+import { SaveAllButton, TextPane } from "../results";
 import {
   EngineNotice,
   FileDrop,
@@ -72,6 +72,10 @@ export function TextTool({
     <>
       <ViewHeader title={title}>
         {options}
+        <SaveAllButton
+          extension={extension}
+          rows={queue.items.filter((i) => i.result).map((i) => ({ name: i.name, text: i.result!.text }))}
+        />
         <RunButton
           running={queue.running}
           disabled={!ready || !queue.items.length}

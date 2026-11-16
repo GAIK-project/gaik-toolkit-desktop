@@ -256,7 +256,7 @@ export function CopyButton({ text }: { text: string }) {
 export function useSaved() {
   const [note, setNote] = useState<{ text: string; path?: string; bad?: boolean } | null>(null);
   const report = (result: SaveResult) => {
-    if (result.ok) setNote({ text: "Saved", path: result.path });
+    if (result.ok) setNote({ text: result.count ? `Saved ${result.count} files` : "Saved", path: result.path });
     else if (!result.canceled) setNote({ text: result.error ?? "Could not save the file.", bad: true });
   };
   const element = note && (

@@ -32,7 +32,9 @@ export interface SettingsView {
 }
 
 export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: string };
-export type SaveResult = { ok: true; path: string } | { ok: false; canceled?: boolean; error?: string };
+export type SaveResult =
+  | { ok: true; path: string; count?: number }
+  | { ok: false; canceled?: boolean; error?: string };
 
 export interface Sheet {
   name: string;
@@ -60,6 +62,7 @@ export interface Bridge {
   save: {
     text(options: { defaultName: string; content: string }): Promise<SaveResult>;
     xlsx(options: { defaultName: string; sheets: Sheet[] }): Promise<SaveResult>;
+    folder(options: { files: { name: string; content: string }[] }): Promise<SaveResult>;
   };
   data: {
     get<T>(name: "recipes" | "runs"): Promise<T | null>;
