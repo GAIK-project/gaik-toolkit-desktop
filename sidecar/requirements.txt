@@ -1,0 +1,6 @@
+# The engine of GAIK Desktop: the gaik toolkit behind a local HTTP API.
+# CPU-only extras, no torch: the environment stays a few hundred MB.
+gaik[extract,parser-cpu,classifier,transcriber,enhance-transcript,vision-extract]==0.9.0
+fastapi>=0.128.0
+uvicorn>=0.40.0
+openpyxl>=3.1.0
