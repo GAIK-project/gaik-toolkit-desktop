@@ -1,6 +1,6 @@
 // Parse and Transcribe share one shape: a file list on the left, the text of the
 // selected file on the right.
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { gaik, type ApiResult, type EngineState } from "../bridge";
 import { saveRun, useQueue, type Item, type Tool } from "../lib";
 import { SaveAllButton, TextPane } from "../results";
@@ -34,6 +34,7 @@ export function TextTool({
   options,
   work,
   concurrency,
+  settingsKey,
 }: {
   engine: EngineState;
   onOpenSettings: () => void;
@@ -47,9 +48,13 @@ export function TextTool({
   options?: ReactNode;
   work: (file: Item<TextResult>) => Promise<ApiResult<TextResult>>;
   concurrency?: number;
+  /** Changes when an option that affects the result changes. */
+  settingsKey?: string;
 }) {
   const queue = useQueue<TextResult>();
   const [selected, setSelected] = useState<string | null>(null);
+  const reset = queue.reset;
+  useEffect(() => reset(), [settingsKey, reset]);
   const ready = usable(engine, needsModel);
   const pending = queue.items.some((i) => i.status !== "done");
   const current =
@@ -179,6 +184,7 @@ export function Transcribe(props: { engine: EngineState; onOpenSettings: () => v
       extension="txt"
       needsModel
       concurrency={2}
+      settingsKey={`${language}|${enhance}`}
       options={
         <>
           <select

@@ -48,6 +48,13 @@ export function useQueue<R>() {
 
   const clear = useCallback(() => setItems([]), []);
 
+  /** Forgets every result, so old answers are not shown under new settings. */
+  const reset = useCallback(() => {
+    setItems((current) =>
+      current.map((i) => ({ ...i, status: "queued", result: undefined, error: undefined })),
+    );
+  }, []);
+
   const patch = (id: string, change: Partial<Item<R>>) =>
     setItems((current) => current.map((i) => (i.id === id ? { ...i, ...change } : i)));
 
@@ -103,7 +110,7 @@ export function useQueue<R>() {
   }, []);
 
   const done = items.filter((i) => i.status === "done" || i.status === "error").length;
-  return { items, add, remove, clear, run, stop, running, done };
+  return { items, add, remove, clear, reset, run, stop, running, done };
 }
 
 // ---------------------------------------------------------------------------

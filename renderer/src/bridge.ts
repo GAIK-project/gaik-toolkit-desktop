@@ -64,6 +64,11 @@ export interface Bridge {
     xlsx(options: { defaultName: string; sheets: Sheet[] }): Promise<SaveResult>;
     folder(options: { files: { name: string; content: string }[] }): Promise<SaveResult>;
   };
+  samples(): Promise<{
+    files: PickedFile[];
+    text: string;
+    requirements_json: Record<string, unknown>;
+  }>;
   data: {
     get<T>(name: "recipes" | "runs"): Promise<T | null>;
     set(name: "recipes" | "runs", value: unknown): Promise<boolean>;

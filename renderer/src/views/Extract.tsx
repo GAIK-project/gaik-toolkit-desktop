@@ -1,5 +1,6 @@
 import { BookmarkPlus, ListChecks, Loader2, RotateCw, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import type { Seed } from "../App";
 import { gaik, type EngineState } from "../bridge";
 import { DOCUMENTS, label, saveRun, useQueue, type ExtractRow, type SchemaField } from "../lib";
 import { ExtractExports, ExtractTable, RecordDetail } from "../results";
@@ -32,11 +33,11 @@ interface Recipe {
 type Mode = "auto" | "local" | "vision";
 type Result = { record: Record<string, unknown>; read: string };
 
+export const INVOICE_EXAMPLE =
+  "Extract the invoice header: invoice number, invoice date (YYYY-MM-DD), due date (YYYY-MM-DD), vendor name, customer name, total amount (number), currency. Extract every line item as a row with these fields: item name, quantity (number), unit price (number), line total (number).";
+
 const EXAMPLES = [
-  {
-    name: "Invoice",
-    text: "Extract the invoice header: invoice number, invoice date (YYYY-MM-DD), due date (YYYY-MM-DD), vendor name, customer name, total amount (number), currency. Extract every line item as a row with these fields: item name, quantity (number), unit price (number), line total (number).",
-  },
+  { name: "Invoice", text: INVOICE_EXAMPLE },
   {
     name: "Contract",
     text: "Contract parties, effective date as YYYY-MM-DD, end date as YYYY-MM-DD, notice period, governing law and total contract value as a number.",
@@ -47,7 +48,15 @@ const EXAMPLES = [
   },
 ];
 
-export function Extract({ engine, onOpenSettings }: { engine: EngineState; onOpenSettings: () => void }) {
+export function Extract({
+  engine,
+  onOpenSettings,
+  seed,
+}: {
+  engine: EngineState;
+  onOpenSettings: () => void;
+  seed?: Seed | null;
+}) {
   const queue = useQueue<Result>();
   const [text, setText] = useState("");
   const [mode, setMode] = useState<Mode>("auto");
@@ -62,23 +71,36 @@ export function Extract({ engine, onOpenSettings }: { engine: EngineState; onOpe
     gaik.data.get<Recipe[]>("recipes").then((r) => setRecipes(r ?? []));
   }, []);
 
+  // The guide hands over sample files and a description; the user still runs it.
+  const addFiles = queue.add;
+  useEffect(() => {
+    if (!seed) return;
+    addFiles(seed.files);
+    loadFields(seed.text, seed.requirements_json);
+    // Runs once per hand-over; loadFields only reads state setters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seed]);
+
   const storeRecipes = (next: Recipe[]) => {
     setRecipes(next);
     gaik.data.set("recipes", next);
   };
 
-  const useRecipe = async (recipe: Recipe) => {
-    setText(recipe.text);
+  /** Loads a saved field list exactly as it was saved; no model call. */
+  async function loadFields(description: string, requirements_json: Record<string, unknown>) {
+    setText(description);
     setError(null);
     setBusy(true);
     const answer = await gaik.api<Schema>("/schema/restore", {
-      requirements: recipe.text,
-      requirements_json: recipe.requirements_json,
+      requirements: description,
+      requirements_json,
     });
     setBusy(false);
-    if (answer.ok) setSchema({ ...answer.data, text: recipe.text });
-    else setError(answer.error);
-  };
+    if (answer.ok) {
+      setSchema({ ...answer.data, text: description.trim() });
+      queue.reset();
+    } else setError(answer.error);
+  }
 
   // The model turns the description into a field list. It is shown before any
   // file is read, because the same description can come back with fewer fields.
@@ -88,14 +110,28 @@ export function Extract({ engine, onOpenSettings }: { engine: EngineState; onOpe
     const wanted = text.trim();
     const answer = await gaik.api<Schema>("/schema", { requirements: wanted });
     setBusy(false);
-    if (answer.ok) setSchema({ ...answer.data, text: wanted });
+    if (answer.ok) {
+      setSchema({ ...answer.data, text: wanted });
+      queue.reset(); // rows read with the old fields would not match the new columns
+    }
     else setError(answer.error);
   };
 
   const run = async (onlyPending: boolean) => {
     setError(null);
-    const active = schema;
-    if (!active) return;
+    if (!schema) return;
+    // The engine forgets field lists when it restarts, for example after a settings
+    // change. Load this one again first: it is rebuilt as saved, with no model call.
+    const restored = await gaik.api<Schema>("/schema/restore", {
+      requirements: schema.text,
+      requirements_json: schema.requirements_json,
+    });
+    if (!restored.ok) {
+      setError(restored.error);
+      return;
+    }
+    const active = { ...restored.data, text: schema.text };
+    setSchema(active);
     const schemaId = active.schema_id;
     const rows = await queue.run(
       (file) => gaik.api<Result>("/extract", { schema_id: schemaId, path: file.path, mode }),
@@ -179,14 +215,19 @@ export function Extract({ engine, onOpenSettings }: { engine: EngineState; onOpe
                   key={e.name}
                   type="button"
                   className="press rounded border border-line px-2 py-0.5 text-xs hover:bg-hover"
-                  onClick={() => setText(e.text)}
+                  onClick={() =>
+                    // The invoice example comes with a saved field list; the others are generated.
+                    e.name === "Invoice"
+                      ? gaik.samples().then((s) => loadFields(s.text, s.requirements_json))
+                      : setText(e.text)
+                  }
                 >
                   {e.name}
                 </button>
               ))}
               {recipes.map((r) => (
                 <span key={r.id} className="inline-flex items-center rounded border border-accent/40 bg-accent-soft text-xs text-accent">
-                  <button type="button" className="press px-2 py-0.5" onClick={() => useRecipe(r)} title={r.text}>
+                  <button type="button" className="press px-2 py-0.5" onClick={() => loadFields(r.text, r.requirements_json)} title={r.text}>
                     {r.name}
                   </button>
                   <button
@@ -240,7 +281,10 @@ export function Extract({ engine, onOpenSettings }: { engine: EngineState; onOpe
                 <Segmented
                   label="How files are read"
                   value={mode}
-                  onChange={setMode}
+                  onChange={(next) => {
+                    setMode(next);
+                    queue.reset();
+                  }}
                   options={[
                     { value: "auto", label: "Auto", hint: "Text is read on this computer; scans and images go to the model as page images" },
                     { value: "local", label: "Text only", hint: "Only the text layer, read on this computer" },

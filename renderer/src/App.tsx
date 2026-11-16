@@ -1,29 +1,46 @@
-import { History as HistoryIcon, Settings as SettingsIcon, type LucideIcon } from "lucide-react";
+import { History as HistoryIcon, Rocket, Settings as SettingsIcon, type LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
-import { gaik, type EngineState } from "./bridge";
-import type { Tool } from "./lib";
+import { gaik, type EngineState, type PickedFile } from "./bridge";
+import type { Run, Tool } from "./lib";
 import { TOOLS } from "./tools";
 import { cx } from "./ui";
 import { Classify } from "./views/Classify";
 import { Extract } from "./views/Extract";
 import { History } from "./views/History";
 import { Settings } from "./views/Settings";
+import { Start } from "./views/Start";
 import { Parse, Transcribe } from "./views/TextTool";
 
-type View = Tool | "history" | "settings";
+type View = Tool | "start" | "history" | "settings";
 const TOOL_ORDER: Tool[] = ["extract", "parse", "classify", "transcribe"];
 
+export interface Seed {
+  nonce: number;
+  files: PickedFile[];
+  text: string;
+  requirements_json: Record<string, unknown>;
+}
+
 export function App() {
-  const [view, setView] = useState<View>("extract");
+  // A first-time user lands on the guide; someone with finished runs on Extract.
+  const [view, setView] = useState<View | null>(null);
   const [engine, setEngine] = useState<EngineState>({ phase: "starting", error: null, health: null, log: [] });
+  const [seed, setSeed] = useState<Seed | null>(null);
 
   useEffect(() => {
     gaik.engine.get().then(setEngine);
+    gaik.data.get<Run[]>("runs").then((runs) => setView((v) => v ?? (runs?.length ? "extract" : "start")));
     return gaik.engine.onChange(setEngine);
   }, []);
 
   const openSettings = () => setView("settings");
   const shared = { engine, onOpenSettings: openSettings };
+  const trySamples = async () => {
+    setSeed({ nonce: Date.now(), ...(await gaik.samples()) });
+    setView("extract");
+  };
+
+  if (view === null) return null;
 
   return (
     <div className="grid h-full grid-cols-[13.5rem_1fr]">
@@ -32,6 +49,8 @@ export function App() {
           GAIK Desktop
         </div>
         <div className="flex flex-1 flex-col gap-0.5 px-2 pt-1">
+          <NavItem icon={Rocket} label="Get started" active={view === "start"} onClick={() => setView("start")} />
+          <div className="my-2 border-t border-line" />
           {TOOL_ORDER.map((tool) => (
             <NavItem
               key={tool}
@@ -52,7 +71,15 @@ export function App() {
 
       {/* Every view stays mounted, so a run keeps going while you look at another tool. */}
       <main className="relative min-w-0">
-        <Pane show={view === "extract"}><Extract {...shared} /></Pane>
+        <Pane show={view === "start"}>
+          <Start
+            engine={engine}
+            onOpenSettings={openSettings}
+            onTrySamples={trySamples}
+            onOpenExtract={() => setView("extract")}
+          />
+        </Pane>
+        <Pane show={view === "extract"}><Extract {...shared} seed={seed} /></Pane>
         <Pane show={view === "parse"}><Parse {...shared} /></Pane>
         <Pane show={view === "classify"}><Classify {...shared} /></Pane>
         <Pane show={view === "transcribe"}><Transcribe {...shared} /></Pane>

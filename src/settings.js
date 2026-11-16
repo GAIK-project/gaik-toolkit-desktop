@@ -6,7 +6,12 @@ const path = require("node:path");
 const PLAIN_FIELDS = ["provider", "azureEndpoint", "azureApiVersion", "model"];
 const SECRET_FIELDS = ["azureApiKey", "openaiApiKey", "extraEnv"];
 
-/** Parses KEY=VALUE lines; blank lines and # comments are skipped. */
+// Variables that decide which programs and modules the engine runs are not
+// accepted from the settings page.
+const BLOCKED_ENV =
+  /^(PATH|PATHEXT|COMSPEC|SYSTEMROOT|WINDIR|TEMP|TMP|LD_\w+|DYLD_\w+|PYTHON\w*|GAIK_DESKTOP_\w*|NODE_\w*|ELECTRON_\w*|UV_\w*)$/i;
+
+/** Parses KEY=VALUE lines; blank lines, # comments and blocked names are skipped. */
 function parseEnvLines(text) {
   const env = {};
   for (const raw of String(text || "").split(/\r?\n/)) {
@@ -15,7 +20,7 @@ function parseEnvLines(text) {
     const eq = line.indexOf("=");
     if (eq <= 0) continue;
     const key = line.slice(0, eq).trim();
-    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) continue;
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key) || BLOCKED_ENV.test(key)) continue;
     let value = line.slice(eq + 1).trim();
     if (
       value.length >= 2 &&

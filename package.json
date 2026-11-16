@@ -11,9 +11,10 @@
     "start": "vite build && electron .",
     "typecheck": "tsc --noEmit",
     "check": "node --check src/main.js && node --check src/preload.js && node --test && tsc --noEmit",
-    "pack": "vite build && electron-builder --dir",
-    "dist": "vite build && electron-builder",
-    "test:engine": "python -m pytest sidecar/test_offline.py -q"
+    "pack": "node scripts/bundle-uv.mjs && vite build && electron-builder --dir",
+    "dist": "node scripts/bundle-uv.mjs && vite build && electron-builder --publish never",
+    "test:engine": "python -m pytest sidecar/test_offline.py -q",
+    "bundle:uv": "node scripts/bundle-uv.mjs"
   },
   "build": {
     "appId": "fi.gaik.toolkit.desktop",
@@ -32,6 +33,14 @@
           "server.py",
           "requirements.txt"
         ]
+      },
+      {
+        "from": "build/bin",
+        "to": "bin"
+      },
+      {
+        "from": "samples",
+        "to": "samples"
       }
     ],
     "win": {
@@ -40,7 +49,9 @@
     },
     "nsis": {
       "oneClick": false,
-      "perMachine": false
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "GAIK-Desktop-Setup-${version}.${ext}"
     },
     "mac": {
       "target": "dmg",

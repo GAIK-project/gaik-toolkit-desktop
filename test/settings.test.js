@@ -85,3 +85,8 @@ test("the store writes secrets encrypted and reads them back", () => {
   assert.equal(fs.readFileSync(file, "utf8").includes("sk-secret"), false);
   assert.deepEqual(store.load(), { provider: "openai", model: "m", openaiApiKey: "sk-secret" });
 });
+
+test("extra variables cannot change what the engine runs", () => {
+  const env = parseEnvLines("PATH=C:/evil\nPYTHONPATH=x\nGAIK_DESKTOP_TOKEN=y\nUV_INDEX=z\nHTTPS_PROXY=http://proxy:8080\nAITTA_API_KEY=k");
+  assert.deepEqual(env, { HTTPS_PROXY: "http://proxy:8080", AITTA_API_KEY: "k" });
+});

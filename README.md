@@ -24,7 +24,22 @@ your own key. Finished runs are kept in a local history.
 This is an experiment, not a supported product: there is no signed installer and no
 auto-update, and it has been tried on Windows 11 only.
 
-## run it
+## install (Windows)
+
+Download `GAIK-Desktop-Setup-<version>.exe` from the
+[latest release](https://github.com/GAIK-project/gaik-toolkit-desktop/releases/latest) and
+run it. Nothing else needs to be installed first.
+
+- The installer is not code-signed, so Windows SmartScreen shows "Windows protected your
+  PC". Choose **More info**, then **Run anyway**.
+- The first start downloads Python and the GAIK toolkit (about 350 MB) into the app's data
+  folder and needs an internet connection; later starts take a few seconds.
+- The app opens on **Get started**: it shows the engine installing, asks for your model
+  key, and offers three sample invoices to try.
+
+Parsing documents that have a text layer works without a key.
+
+## run it from source
 
 Needs [bun](https://bun.sh) and [uv](https://docs.astral.sh/uv/).
 
@@ -36,12 +51,9 @@ bun install
 bun start
 ```
 
-The first start installs the engine (Python and `gaik` from PyPI, about 300 MB) into the
-app's data folder; later starts take a few seconds. Then open **Settings** and enter your
-model endpoint and key. Parsing documents that have a text layer works without a key.
-
-`bun run pack` builds an unpacked app into `release/`, `bun run dist` an installer for the
-current platform. The packaged app still needs `uv` on the computer for the first start.
+`bun run pack` builds an unpacked app into `release/`, `bun run dist` the installer for the
+current platform. Both copy the `uv` on your machine into the package. Pushing a tag such as
+`v0.1.0` builds the Windows installer in GitHub Actions and attaches it to a release.
 
 ## how it works
 
@@ -53,6 +65,9 @@ Electron main process (src/)      window, settings, file pickers, engine lifecyc
 
 - The engine runs `gaik` 0.9.0 with CPU-only extras (no torch). Requests name files by
   path, so documents are never copied.
+- The engine is uv's own Python plus a folder of packages, not a virtual environment: a
+  virtual environment's `python.exe` is a launcher generated on each computer, and managed
+  Windows computers refuse to run such unsigned launchers.
 - Model keys are encrypted with the operating system's secure storage (Electron
   `safeStorage`) and handed to the engine as environment variables. The settings page
   never receives a saved key back.

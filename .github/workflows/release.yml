@@ -1,0 +1,46 @@
+name: Release
+
+# Pushing a tag such as v0.1.0 builds the Windows installer and attaches it to a
+# GitHub release. The tag must match "version" in package.json.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    name: Windows installer
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: oven-sh/setup-bun@v2
+      - uses: astral-sh/setup-uv@v6
+      - name: Tag matches package.json
+        shell: bash
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match package.json version $version" >&2
+            exit 1
+          fi
+      - run: bun install --frozen-lockfile
+      - run: bun run check
+      # Bundles the runner's uv into the installer, so the app needs no uv or Python.
+      - run: bun run dist
+      - name: Publish the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" release/GAIK-Desktop-Setup-*.exe \
+            --title "GAIK Desktop ${GITHUB_REF_NAME#v} (experimental)" \
+            --notes "Windows installer for GAIK Desktop. See the README for what the app does and its limits.
+
+          The installer is not code-signed, so Windows SmartScreen shows \"Windows protected your PC\" when you open it: choose **More info**, then **Run anyway**.
+
+          The first start downloads Python and the GAIK toolkit (about 350 MB) and needs an internet connection. No Python or other tools need to be installed beforehand."

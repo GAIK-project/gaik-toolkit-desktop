@@ -1,7 +1,9 @@
 node_modules/
 dist/
 release/
+build/bin/
 .venv-dev/
 __pycache__/
+.pytest_cache/
 *.log
 .env*

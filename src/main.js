@@ -50,11 +50,12 @@ const engine = {
 };
 
 const userPath = (...parts) => path.join(app.getPath("userData"), ...parts);
-const venvDir = () => userPath("engine");
-const venvPython = () =>
-  isWin
-    ? path.join(venvDir(), "Scripts", "python.exe")
-    : path.join(venvDir(), "bin", "python");
+// The engine is uv's own Python plus a folder of packages on PYTHONPATH. There is
+// no virtual environment on purpose: its python.exe is a launcher generated per
+// install, and managed Windows computers refuse to run such unsigned launchers.
+const engineDir = () => userPath("engine");
+const sitePackages = () => path.join(engineDir(), "site");
+const engineMarker = () => path.join(engineDir(), "engine.json");
 
 function uvCommand() {
   const bundled = path.join(process.resourcesPath || "", "bin", isWin ? "uv.exe" : "uv");
@@ -116,10 +117,16 @@ function stopChildren() {
 
 function runStep(name, cmd, args) {
   return new Promise((resolve, reject) => {
-    const child = track(spawn(cmd, args, { windowsHide: true }), name);
+    // uv brings its own Python: the engine must not depend on whatever Python
+    // the computer has (none, an old one, or the Microsoft Store placeholder).
+    const env = { ...process.env, UV_PYTHON_PREFERENCE: "only-managed" };
+    const child = track(spawn(cmd, args, { windowsHide: true, env }), name);
+    let out = "";
+    child.stdout.setEncoding("utf8"); // a path may hold multi-byte characters
+    child.stdout.on("data", (d) => (out += d));
     child.on("error", reject);
     child.on("exit", (code) =>
-      code === 0 ? resolve() : reject(new Error(`${name} failed (exit code ${code})`)),
+      code === 0 ? resolve(out) : reject(new Error(`${name} failed (exit code ${code})`)),
     );
   });
 }
@@ -204,27 +211,53 @@ async function waitForEngine(child, timeoutMs) {
 // ---------------------------------------------------------------------------
 // Engine start-up
 // ---------------------------------------------------------------------------
-async function ensurePython() {
+/** Returns the engine's Python, or null when a newer start has taken over. */
+async function ensurePython(current) {
   const requirements = path.join(sidecarDir, "requirements.txt");
   const wanted = crypto.createHash("sha256").update(fs.readFileSync(requirements)).digest("hex");
-  const marker = path.join(venvDir(), ".requirements");
-  const have = fs.existsSync(marker) ? fs.readFileSync(marker, "utf8").trim() : "";
-  if (have === wanted && fs.existsSync(venvPython())) return;
+  let saved = {};
+  try {
+    saved = JSON.parse(fs.readFileSync(engineMarker(), "utf8"));
+  } catch {
+    // no finished install yet
+  }
+  if (saved.requirements === wanted && saved.python && fs.existsSync(saved.python)) {
+    return saved.python;
+  }
 
   setPhase("installing");
   const uv = uvCommand();
   try {
-    if (!fs.existsSync(venvPython())) {
-      await runStep("uv", uv, ["venv", "--python", "3.12", venvDir()]);
-    }
-    await runStep("uv", uv, ["pip", "install", "--python", venvPython(), "-r", requirements]);
+    await runStep("uv", uv, ["python", "install", "3.12"]);
+    if (!current()) return null;
+    const found = await runStep("uv", uv, ["python", "find", "3.12"]);
+    if (!current()) return null; // never delete a folder a newer start is installing into
+    const python = found.trim().split(/\r?\n/).pop();
+    if (!python || !fs.existsSync(python)) throw new Error("uv did not report a Python to use.");
+    // The marker is written last, so an install that was interrupted or belongs
+    // to other requirements is replaced as a whole, never patched.
+    fs.rmSync(engineDir(), { recursive: true, force: true });
+    await runStep("uv", uv, [
+      "pip",
+      "install",
+      "--python",
+      python,
+      "--target",
+      sitePackages(),
+      "-r",
+      requirements,
+    ]);
+    if (!current()) return null;
+    fs.writeFileSync(engineMarker(), JSON.stringify({ requirements: wanted, python }));
+    return python;
   } catch (err) {
     if (err.code === "ENOENT") {
       throw new Error("uv was not found. Install it from https://docs.astral.sh/uv/ and start again.");
     }
-    throw err;
+    throw new Error(
+      `The engine could not be installed (${err.message}). It is downloaded on the first start: check the internet connection and try again. The log has the details.`,
+    );
   }
-  fs.writeFileSync(marker, wanted);
 }
 
 async function startEngine() {
@@ -236,8 +269,8 @@ async function startEngine() {
   setPhase("starting");
 
   try {
-    await ensurePython();
-    if (!current()) return;
+    const python = await ensurePython(current);
+    if (!current() || !python) return;
     setPhase("starting");
 
     // GAIK_DESKTOP_USE_ENV=1 (development): model variables come from the shell
@@ -245,9 +278,10 @@ async function startEngine() {
     const modelEnv =
       process.env.GAIK_DESKTOP_USE_ENV === "1" ? {} : settingsToEnv(store.load());
     const port = await freePort();
+    if (!current()) return; // a newer start, or quitting: do not spawn a second engine
     engine.token = crypto.randomBytes(24).toString("hex");
     const child = track(
-      spawn(venvPython(), [path.join(sidecarDir, "server.py")], {
+      spawn(python, [path.join(sidecarDir, "server.py")], {
         cwd: app.getPath("temp"),
         windowsHide: true,
         env: {
@@ -255,6 +289,11 @@ async function startEngine() {
           ...modelEnv,
           GAIK_DESKTOP_TOKEN: engine.token,
           GAIK_DESKTOP_PORT: String(port),
+          GAIK_DESKTOP_WATCH_PARENT: "1",
+          // Only the engine's own packages: nothing from the user's Python setup.
+          PYTHONPATH: sitePackages(),
+          PYTHONHOME: undefined,
+          PYTHONNOUSERSITE: "1",
           PYTHONUNBUFFERED: "1",
           PYTHONUTF8: "1",
         },
@@ -488,6 +527,16 @@ handle("data:set", (name, value) => {
   fs.mkdirSync(userPath("data"), { recursive: true });
   fs.writeFileSync(userPath("data", `${name}.json`), JSON.stringify(value));
   return true;
+});
+
+// Made-up invoices and a saved field list for them, so a first try does not
+// depend on what the model makes of a description.
+handle("samples", () => {
+  const folder = app.isPackaged
+    ? path.join(process.resourcesPath, "samples")
+    : path.join(__dirname, "..", "samples");
+  const fields = JSON.parse(fs.readFileSync(path.join(folder, "invoice-fields.json"), "utf8"));
+  return { files: expandPaths([path.join(folder, "invoices")], ["pdf"]), ...fields };
 });
 
 handle("app:info", () => ({

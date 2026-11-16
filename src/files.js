@@ -9,11 +9,12 @@ function expandPaths(paths, extensions) {
   const allowed = new Set(extensions.map((e) => `.${e}`));
   const seen = new Set();
   const out = [];
+  if (!allowed.size) return out;
 
   const add = (file, size) => {
     const key = process.platform === "win32" ? file.toLowerCase() : file;
     if (seen.has(key) || out.length >= MAX_FILES) return;
-    if (allowed.size && !allowed.has(path.extname(file).toLowerCase())) return;
+    if (!allowed.has(path.extname(file).toLowerCase())) return;
     seen.add(key);
     out.push({ path: file, name: path.basename(file), size });
   };

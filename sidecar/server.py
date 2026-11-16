@@ -18,7 +18,7 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 TOKEN = os.environ.get("GAIK_DESKTOP_TOKEN", "")
 
@@ -53,13 +53,41 @@ async def user_error(_request: Request, exc: UserError):
     return JSONResponse({"error": str(exc)}, status_code=400)
 
 
+@app.exception_handler(PermissionError)
+async def permission_error(_request: Request, _exc: PermissionError):
+    return JSONResponse(
+        {
+            "error": "The file cannot be read or written. If it is open in another program, close it and try again."
+        },
+        status_code=400,
+    )
+
+
+@app.exception_handler(ValidationError)
+async def validation_error(_request: Request, _exc: ValidationError):
+    return JSONResponse(
+        {"error": "The saved field list could not be read. Generate the fields again."},
+        status_code=400,
+    )
+
+
 @app.exception_handler(Exception)
 async def unexpected_error(_request: Request, exc: Exception):
     return JSONResponse({"error": _provider_message(exc)}, status_code=500)
 
 
+def _redact(text: str) -> str:
+    """Removes every configured key or token from a message before it is shown or logged."""
+    for name, value in os.environ.items():
+        if len(value) >= 8 and any(
+            w in name.upper() for w in ("KEY", "TOKEN", "SECRET", "PASSWORD")
+        ):
+            text = text.replace(value, "[hidden]")
+    return text
+
+
 def _provider_message(exc: Exception) -> str:
-    text = str(exc).strip() or exc.__class__.__name__
+    text = _redact(str(exc).strip() or exc.__class__.__name__)
     lowered = text.lower()
     if "401" in text or "invalid api key" in lowered or "unauthorized" in lowered:
         return "The model provider rejected the key. Check it in Settings."
@@ -355,6 +383,8 @@ def classify(body: ClassifyRequest):
 
     path = existing(body.path)
     classes = [c.strip() for c in body.classes if c.strip()]
+    if len(classes) < 2:
+        raise UserError("Add at least two classes.")
     result = DocumentClassifier(config=llm_config()).classify(str(path), classes)
     entry = next(iter(result.values()), None) if isinstance(result, dict) else None
     if not isinstance(entry, dict):
@@ -431,15 +461,40 @@ def export_xlsx(body: ExportRequest):
 
 
 def _cell(value: Any) -> Any:
-    if value is None or isinstance(value, (str, int, float, bool)):
+    if isinstance(value, str):
+        # Control characters (a form feed from a PDF, for one) are not allowed in a workbook.
+        return "".join(c for c in value if c >= " " or c in "\t\n\r")
+    if value is None or isinstance(value, (int, float, bool)):
         return value
     import json
 
     return json.dumps(value, ensure_ascii=False)
 
 
+def _exit_with_parent() -> None:
+    """Stops the engine when the app that started it is gone.
+
+    The app holds this process's stdin open. If the app quits, crashes or is
+    killed, the pipe closes and the read below returns, so the engine never
+    outlives it.
+    """
+    import sys
+    import threading
+
+    def watch() -> None:
+        try:
+            sys.stdin.buffer.read()
+        finally:
+            os._exit(0)
+
+    threading.Thread(target=watch, daemon=True).start()
+
+
 if __name__ == "__main__":
     import uvicorn
+
+    if os.environ.get("GAIK_DESKTOP_WATCH_PARENT") == "1":
+        _exit_with_parent()
 
     uvicorn.run(
         app,

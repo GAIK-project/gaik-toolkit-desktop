@@ -1,5 +1,5 @@
 import { X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { gaik, type EngineState } from "../bridge";
 import { DOCUMENTS, saveRun, useQueue } from "../lib";
 import { ClassifyExports, ClassifyTable, type ClassifyResult } from "../results";
@@ -18,6 +18,10 @@ export function Classify({ engine, onOpenSettings }: { engine: EngineState; onOp
   const queue = useQueue<ClassifyResult>();
   const [classes, setClasses] = useState<string[]>([]);
   const [draft, setDraft] = useState("");
+  // A class list that changed makes every earlier answer out of date.
+  const reset = queue.reset;
+  useEffect(() => reset(), [classes, reset]);
+
   const ready = usable(engine, true);
   const pending = queue.items.some((i) => i.status !== "done");
 

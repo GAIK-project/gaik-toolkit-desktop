@@ -1,0 +1,165 @@
+{
+  "text": "Extract the invoice header: invoice number, invoice date (YYYY-MM-DD), due date (YYYY-MM-DD), vendor name, customer name, total amount (number), currency. Extract every line item as a row with these fields: item name, quantity (number), unit price (number), line total (number).",
+  "requirements_json": {
+    "structure_type": "parent_with_nested_list",
+    "parent_requirements": {
+      "use_case_name": "invoice_header_extraction",
+      "fields": [
+        {
+          "field_name": "invoice_number",
+          "field_type": "str",
+          "description": "Invoice number.",
+          "required_in_output": true,
+          "nullable": false,
+          "enum": null,
+          "default": "",
+          "has_explicit_default": false,
+          "required": true,
+          "pattern": null,
+          "format": null
+        },
+        {
+          "field_name": "invoice_date",
+          "field_type": "date",
+          "description": "Invoice date in YYYY-MM-DD format.",
+          "required_in_output": true,
+          "nullable": false,
+          "enum": null,
+          "default": "",
+          "has_explicit_default": false,
+          "required": true,
+          "pattern": null,
+          "format": "%Y-%m-%d"
+        },
+        {
+          "field_name": "due_date",
+          "field_type": "date",
+          "description": "Due date in YYYY-MM-DD format.",
+          "required_in_output": true,
+          "nullable": false,
+          "enum": null,
+          "default": "",
+          "has_explicit_default": false,
+          "required": true,
+          "pattern": null,
+          "format": "%Y-%m-%d"
+        },
+        {
+          "field_name": "vendor_name",
+          "field_type": "str",
+          "description": "Vendor name.",
+          "required_in_output": true,
+          "nullable": false,
+          "enum": null,
+          "default": "",
+          "has_explicit_default": false,
+          "required": true,
+          "pattern": null,
+          "format": null
+        },
+        {
+          "field_name": "customer_name",
+          "field_type": "str",
+          "description": "Customer name.",
+          "required_in_output": true,
+          "nullable": false,
+          "enum": null,
+          "default": "",
+          "has_explicit_default": false,
+          "required": true,
+          "pattern": null,
+          "format": null
+        },
+        {
+          "field_name": "total_amount",
+          "field_type": "decimal",
+          "description": "Invoice total amount as a number.",
+          "required_in_output": true,
+          "nullable": false,
+          "enum": null,
+          "default": "",
+          "has_explicit_default": false,
+          "required": true,
+          "pattern": null,
+          "format": null
+        },
+        {
+          "field_name": "currency",
+          "field_type": "str",
+          "description": "Currency.",
+          "required_in_output": true,
+          "nullable": false,
+          "enum": null,
+          "default": "",
+          "has_explicit_default": false,
+          "required": true,
+          "pattern": null,
+          "format": null
+        }
+      ]
+    },
+    "children": [
+      {
+        "container_name": "line_items",
+        "container_description": "Each invoice line item, with its item name, quantity, unit price, and line total.",
+        "requirements": {
+          "use_case_name": "invoice_line_items",
+          "fields": [
+            {
+              "field_name": "item_name",
+              "field_type": "str",
+              "description": "Name of the line item.",
+              "required_in_output": true,
+              "nullable": false,
+              "enum": null,
+              "default": "",
+              "has_explicit_default": false,
+              "required": true,
+              "pattern": null,
+              "format": null
+            },
+            {
+              "field_name": "quantity",
+              "field_type": "int",
+              "description": "Line item quantity (number).",
+              "required_in_output": true,
+              "nullable": false,
+              "enum": null,
+              "default": null,
+              "has_explicit_default": false,
+              "required": true,
+              "pattern": null,
+              "format": null
+            },
+            {
+              "field_name": "unit_price",
+              "field_type": "decimal",
+              "description": "Line item unit price (number).",
+              "required_in_output": true,
+              "nullable": false,
+              "enum": null,
+              "default": null,
+              "has_explicit_default": false,
+              "required": true,
+              "pattern": null,
+              "format": null
+            },
+            {
+              "field_name": "line_total",
+              "field_type": "decimal",
+              "description": "Line item total (number).",
+              "required_in_output": true,
+              "nullable": false,
+              "enum": null,
+              "default": null,
+              "has_explicit_default": false,
+              "required": true,
+              "pattern": null,
+              "format": null
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

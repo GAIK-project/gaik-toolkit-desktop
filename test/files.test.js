@@ -33,3 +33,9 @@ test("writeAll never overwrites and keeps files inside the folder", () => {
   assert.equal(fs.readFileSync(path.join(folder, "a.md"), "utf8"), "old");
   assert.equal(fs.readFileSync(path.join(folder, "a (3).md"), "utf8"), "two");
 });
+
+test("expandPaths returns nothing when no extension is allowed", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "gaik-none-"));
+  fs.writeFileSync(path.join(root, "a.pdf"), "x");
+  assert.deepEqual(expandPaths([root], []), []);
+});

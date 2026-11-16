@@ -226,3 +226,40 @@ def test_excel_export_writes_one_sheet_per_group(client, tmp_path):
     assert book.sheetnames == ["Results", "Lineitems x"]
     assert [c.value for c in book["Results"][2]] == ["a.pdf", 12.5]
     assert book["Lineitems x"]["B2"].value == '{"nested": "ä"}'
+
+
+def test_a_key_never_appears_in_an_error_message(monkeypatch):
+    monkeypatch.setenv("AZURE_API_KEY", "super-secret-key-123")
+    message = server._provider_message(
+        RuntimeError("Illegal header value b'Bearer super-secret-key-123'")
+    )
+    assert "super-secret-key-123" not in message
+    assert "[hidden]" in message
+
+
+def test_excel_export_drops_control_characters(client, tmp_path):
+    target = tmp_path / "ctl.xlsx"
+    sheets = [{"name": "R", "columns": ["Text"], "rows": [["page one\x0cpage two"]]}]
+    response = client.post(
+        "/export/xlsx", headers=AUTH, json={"path": str(target), "sheets": sheets}
+    )
+    assert response.status_code == 200
+    assert load_workbook(target)["R"]["A2"].value == "page onepage two"
+
+
+def test_a_broken_saved_field_list_is_a_clear_error(client):
+    response = client.post(
+        "/schema/restore",
+        headers=AUTH,
+        json={"requirements": "x", "requirements_json": {"fields": "nope"}},
+    )
+    assert response.status_code == 400
+    assert "Generate the fields again" in response.json()["error"]
+
+
+def test_blank_classes_do_not_count(client, text_pdf):
+    response = client.post(
+        "/classify", headers=AUTH, json={"path": str(text_pdf), "classes": ["a", "  "]}
+    )
+    assert response.status_code == 400
+    assert response.json()["error"] == "Add at least two classes."
